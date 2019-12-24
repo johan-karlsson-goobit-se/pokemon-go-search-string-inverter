@@ -1,0 +1,74 @@
+<!doctype html>
+
+<html lang="en">
+<head>
+	<meta charset="utf-8">
+
+	<title>Pokemon Go search string inverter</title>
+	<script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+
+	<script>
+		function invert() {
+			var lastPokemon = 807;
+			
+			var resultarray = Array();
+			var original = $("textarea").val();
+			var andstrings = original.split("&");
+			var completeresult = Array();
+			
+			for ( var i in andstrings ) {
+				var res = andstrings[i].match(/^[0-9,-]/);
+				if ( res ) {
+					var orstrings = res['input'].split(",");
+					for ( var j in orstrings ) {
+						if ( orstrings[j].match(/[-]/)) {
+							var startandstop = orstrings[j].split("-");
+							for ( var k = parseInt(startandstop[0]); k <= parseInt(startandstop[1]); k++) {
+								resultarray.push(parseInt(k));
+							}
+						} else {
+							resultarray.push(parseInt(orstrings[j]));
+						}
+					}
+				} else {
+					if ( $('input[name="keepstatic"]:checked').length > 0 ) {
+						completeresult.push(andstrings[i]);
+					}
+				}
+			}
+
+			resultarray.sort((a,b) => a-b);
+			var resultstring = "";
+			for( var i = 1; i <= lastPokemon; i++ ) {
+				if (!resultarray.includes(i)) {
+
+					resultstring = resultstring + i;
+					var foundnext = false;
+					while(!resultarray.includes(i+1) && i+1 <= lastPokemon) {
+						i++;
+						foundnext = true;
+					}
+					if ( foundnext ) {
+						resultstring = resultstring + "-" + i;
+					}
+					resultstring = resultstring + ","
+				}
+			}
+			
+			resultstring = resultstring.slice(0, -1);
+			completeresult.push(resultstring);
+			
+			
+			$("textarea").val(completeresult.join("&"));
+		}
+	</script>
+
+</head>
+
+<body>
+	<form>
+		<textarea style="width: 100%; height: 100px;" placeholder="!traded&!shiny&!4*&3,6-10,15,20-21"></textarea>
+		<button type="button" onclick="invert()" style="width: 100%">Invert</button><br />
+		<input type="checkbox" name="keepstatic" id="keepstatic"> Keep string parts
+</body>
+</html>
