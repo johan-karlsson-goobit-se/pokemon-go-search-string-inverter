@@ -3,16 +3,83 @@
 <html lang="en">
 <head>
 	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 	<title>Pokemon Go search string inverter</title>
 	<script src="https://code.jquery.com/jquery-3.4.1.min.js"></script>
+	<script src="pokemons.js"></script>
+	
+	<style>
+		html { font-family: "Verdana"; }
+		#rarityoutput { word-break: break-all; }
+	</style>
 
 	<script>
-		function invert() {
+
+	
+		function calculateRarityList() {
+			var cutoffDate = new Date("2020-01-01");
+			var rarityList = [];
+			var totalPokies = 0;
+			for ( var i in pokemons ) {
+				var pokeday = pokemons[i];
+				var dataDate = new Date(pokeday.date);
+
+				if(dataDate < cutoffDate) {
+					continue;
+				}
+				if ( ! rarityList[pokeday.pokemon_id] ) {
+					rarityList[pokeday.pokemon_id] = 0;
+				}
+				rarityList[pokeday.pokemon_id] += parseInt(pokeday.count);
+				totalPokies += parseInt(pokeday.count);
+			}
+			
+			for(var i in rarityList) {
+				rarityList[i] = rarityList[i] * 100 / totalPokies;
+			}
+			
+			return rarityList;
+		}
+	
+		function rarity() {
+			var rarityList = calculateRarityList();
+			var resultarray = parseInput($("textarea").val());
+
+			var uncategorized = [];
+			var common = [];
+			var uncommon = [];
+			var rare = [];
+			for(var i in resultarray) {
+				var pokeid = resultarray[i];
+				if ( ! rarityList[pokeid] ) {
+					uncategorized.push(pokeid);
+				} else if ( rarityList[i] > 0.2 ) {
+					common.push(pokeid);
+				} else if ( rarityList[pokeid] > 0.02 ) {
+					uncommon.push(pokeid);
+				} else {
+					rare.push(pokeid);
+				}
+			}
+
+			uncategorized = simplifyResult(uncategorized, fetchStatic($("textarea").val())), false;
+			common = simplifyResult(common, fetchStatic($("textarea").val()), false);
+			uncommon = simplifyResult(uncommon, fetchStatic($("textarea").val()), false);
+			rare = simplifyResult(rare, fetchStatic($("textarea").val()), false);
+			
+			$('#rarityoutput').html('<p><strong>Uncategorized:</strong><br>' + uncategorized.join("&") + '<br><br>' + 
+								'<strong>Common:</strong><br>' + common.join("&") + '<br><br>' + 
+								'<strong>Uncommon:</strong><br>' + uncommon.join("&") + '<br><br>' + 
+								'<strong>Rare:</strong><br>' + rare.join("&"));
+			
+		}
+	
+		function parseInput(input) {
 			var lastPokemon = 807;
 			
 			var resultarray = Array();
-			var original = $("textarea").val();
+			var original = input;
 			var andstrings = original.split("&");
 			var completeresult = Array();
 			
@@ -31,6 +98,7 @@
 						}
 					}
 				} else {
+					// 	TODO: cleanup..
 					if ( $('input[name="keepstatic"]:checked').length > 0 ) {
 						completeresult.push(andstrings[i]);
 					}
@@ -38,13 +106,35 @@
 			}
 
 			resultarray.sort((a,b) => a-b);
+			return resultarray;
+		}
+		
+		function fetchStatic(input) {
+			var andstrings = input.split("&");
+			var completeresult = Array();
+			
+			for ( var i in andstrings ) {
+			
+				var res = andstrings[i].match(/^[0-9,-]/);
+				if ( ! res ) {
+					// TODO: This really should not be in here..
+					if ( $('input[name="keepstatic"]:checked').length > 0 ) {
+						completeresult.push(andstrings[i]);
+					}
+				}
+			}
+			return completeresult;
+		}
+	
+		function simplifyResult(resultarray, completeresult, invert) {
+			var lastPokemon = 807;
 			var resultstring = "";
 			for( var i = 1; i <= lastPokemon; i++ ) {
-				if (!resultarray.includes(i)) {
+				if ( invert ^ resultarray.includes(i)) {
 
 					resultstring = resultstring + i;
 					var foundnext = false;
-					while(!resultarray.includes(i+1) && i+1 <= lastPokemon) {
+					while((invert ^ resultarray.includes(i+1)) && i+1 <= lastPokemon) {
 						i++;
 						foundnext = true;
 					}
@@ -57,8 +147,14 @@
 			
 			resultstring = resultstring.slice(0, -1);
 			completeresult.push(resultstring);
-			
-			
+			return completeresult;
+		}
+	
+		function invert() {
+			var original = $("textarea").val();
+			var completeresult =fetchStatic(original);
+			var resultarray = parseInput(original);
+			completeresult = simplifyResult(resultarray, completeresult, true);
 			$("textarea").val(completeresult.join("&"));
 		}
 	</script>
@@ -67,8 +163,15 @@
 
 <body>
 	<form>
+	<p>
 		<textarea style="width: 100%; height: 100px;" placeholder="!traded&!shiny&!4*&3,6-10,15,20-21"></textarea>
+	</p><p>
 		<button type="button" onclick="invert()" style="width: 100%">Invert</button><br />
-		<input type="checkbox" name="keepstatic" id="keepstatic"> Keep string parts
+	</p><p>
+		<button type="button" onclick="rarity()" style="width: 100%">Split by rarity tiers</button><br />
+	</p><p>
+		<input type="checkbox" name="keepstatic" id="keepstatic" checked="checked"> Keep string parts
+	</p>
+	<div id="rarityoutput"></div>
 </body>
 </html>
